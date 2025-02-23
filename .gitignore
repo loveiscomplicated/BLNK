@@ -222,4 +222,7 @@ pyrightconfig.json
 .history
 .ionide
 
+# Local configuration files
+config.py
+
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,macos,python
