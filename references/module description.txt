@@ -1,0 +1,15 @@
+main
+
+OCR
+NON_OCR
+
+GPT_important_words
+
+blank_image
+
+
+OCR:
+google cloud console의 document ai 사용할 예정
+문서 OCR에 특화되어 성능이 다른 것들에 비해 더 낫기 때문이다.
+
+OCR을 통해 이미지/pdf에서 텍스트 추출, 글씨들의 좌표, 이미지 리스트를 반환
