@@ -1,15 +1,54 @@
 import os
 import re
 import cv2
+import img2pdf
 import numpy as np
+from PIL import Image
+from io import BytesIO
+from collections import defaultdict
 from google.cloud import documentai
-from google.api_core.client_options import ClientOptions
 from pdf2image import convert_from_path
+from google.api_core.client_options import ClientOptions
 
-
+import GPT_important_words
+import draw_blank
 
 # Google cloud console의 Document AI를 이용하여 OCR을 진행할 것입니다.
 # 서비스 계정 JSON 파일을 만든 후, 해당 파일의 경로를 GOOGLE_APPLICATION_CREDENTIALS라는 이름으로 저장하세요.
+
+def pdf_to_blanked_pdf(file_path, keyword_ratio):
+    """
+    OCR 전 과정을 수행하는 함수
+
+    Args:
+        project_id (str): Google Cloud 프로젝트 ID
+        location (str): Document AI API 위치 (us 또는 eu)
+        processor_id (str): Document AI 프로세서 ID
+        file_path (str): 입력 파일 경로
+
+    Returns:
+        output (pdf): 최종 결과물
+    """
+    PROJECT_ID = "blnk-445514"
+    LOCATION = "us"  # 위치를 'us' 또는 'eu'로 설정
+    PROCESSOR_ID = "f95b966bf0fb2004"  # Cloud Console에서 생성된 프로세서 ID
+
+    # Document AI를 사용하여 텍스트와 경계 상자 좌표를 추출
+    document_object = pdf(PROJECT_ID, LOCATION, PROCESSOR_ID, file_path)
+    
+    # PDF를 OpenCV에서 사용할 수 있도록 변환하고,
+    # Document AI에서 제공하는 원본 크기와 동일한 크기로 조정.
+    image_list = pdf_to_images_with_docai_size(file_path, document_object)
+
+    # GPT 사용하는 부분
+    path = './tests/materials/gpt_api_key.json'
+    gpt_api_key = GPT_important_words.load_api_key(path)
+    important_words_list = GPT_important_words.gpt_api_call(gpt_api_key, document_object.text, keyword_ratio)
+
+    # 빈칸 생성하는 부분
+    coord_dict = draw_blank.get_bounding_bxes_by_page(document_object, important_words_list)
+    draw_blank.draw_boxes(image_list, coord_dict, output_pdf_path="./tests/materials/output.pdf", color=(0, 255, 0), thickness=2)
+
 
 def pdf(project_id, location, processor_id, file_path):
     """
@@ -22,7 +61,7 @@ def pdf(project_id, location, processor_id, file_path):
         file_path (str): 입력 파일 경로
 
     Returns:
-        document_object(???): Document AI의 출력물
+        document_object(json): Document AI의 출력물
     """
 
     # 환경 변수 설정 확인
@@ -89,90 +128,8 @@ def pdf_to_images_with_docai_size(file_path, document_object):
 
     return image_list
 
-def find_tokens_in_range(document_object, start_index, end_index):
-    """
-    특정 시작~끝 인덱스에 포함되는 모든 토큰을 검색하는 함수.
-
-    Args:
-        document_object: Google Document AI의 OCR 결과 객체
-        start_index (int): 검색할 시작 인덱스
-        end_index (int): 검색할 끝 인덱스
-
-    Returns:
-        list: 조건을 만족하는 토큰 목록 (딕셔너리 형태로 반환)
-    """
-    matched_tokens = []
-
-    for page in document_object.pages:
-        for token in page.tokens:
-            # 토큰이 text_anchor.text_segments를 가지고 있는지 확인
-            if not token.layout.text_anchor.text_segments:
-                continue  # text_segments가 없는 경우 건너뜀
-
-            # 현재 토큰의 시작/끝 인덱스 가져오기
-            token_start = token.layout.text_anchor.text_segments[0].start_index
-            token_end = token.layout.text_anchor.text_segments[0].end_index
-
-            # ✅ 토큰이 범위 내에 포함되는지 확인
-            if token_start < end_index and token_end > start_index:
-                # OpenCV 호환 가능한 bounding_box 좌표 변환
-                bounding_box = [(vertex.x, vertex.y) for vertex in token.layout.bounding_poly.normalized_vertices]
-
-                matched_tokens.append({
-                    "text": document_object.text[token_start:token_end],  # 실제 텍스트
-                    "start_index": token_start,
-                    "end_index": token_end,
-                    "page_number": page.page_number,
-                    "bounding_box": bounding_box  # ✅ OpenCV 호환 좌표 저장
-                })
-
-    return matched_tokens
-
-
-
-def find_word_indices(full_text, words):
-    """
-    주어진 full_text에서 특정 단어 리스트에 포함된 단어들의 시작 및 끝 인덱스를 찾는 함수.
-
-    Args:
-        full_text (str): 검색할 전체 텍스트
-        words (list of str): 검색할 단어 리스트
-
-    Returns:
-        list of dict: 단어와 해당 위치 정보 리스트
-            - {"word": 단어, "start_index": 시작 인덱스, "end_index": 끝 인덱스}
-    """
-    matched_indices = []
-
-    for word in words:
-        # 단어가 full_text에서 여러 번 등장할 수 있으므로 finditer 사용
-        for match in re.finditer(re.escape(word), full_text):
-            matched_indices.append({
-                "word": word,
-                "start_index": match.start(),
-                "end_index": match.end()
-            })
-
-    return matched_indices
-
-
 
 
 if __name__ == '__main__':
-    PROJECT_ID = "blnk-445514"
-    LOCATION = "us"  # 위치를 'us' 또는 'eu'로 설정
-    PROCESSOR_ID = "f95b966bf0fb2004"  # Cloud Console에서 생성된 프로세서 ID
-    FILE_PATH = "./tests/materials/ex_history.pdf"
-
-
-    document_object = pdf(PROJECT_ID, LOCATION, PROCESSOR_ID, FILE_PATH)
-
-    import pickle
-
-    save_path = './tests/materials/document_object.pkl'
-
-    with open(save_path, 'wb') as f:
-        pickle.dump(document_object, f)
-
-    print("저장 완료")
-
+    pdf_to_blanked_pdf('./tests/materials/ocr_removed.pdf', 0.25)
+    print('good')
