@@ -1,4 +1,5 @@
 import os
+import re
 import cv2
 import numpy as np
 from google.cloud import documentai
@@ -54,6 +55,8 @@ def pdf(project_id, location, processor_id, file_path):
 
     document_object = result.document
     return document_object
+
+
 
 def pdf_to_images_with_docai_size(file_path, document_object):
     """
@@ -124,6 +127,36 @@ def find_tokens_in_range(document_object, start_index, end_index):
                 })
 
     return matched_tokens
+
+
+
+def find_word_indices(full_text, words):
+    """
+    주어진 full_text에서 특정 단어 리스트에 포함된 단어들의 시작 및 끝 인덱스를 찾는 함수.
+
+    Args:
+        full_text (str): 검색할 전체 텍스트
+        words (list of str): 검색할 단어 리스트
+
+    Returns:
+        list of dict: 단어와 해당 위치 정보 리스트
+            - {"word": 단어, "start_index": 시작 인덱스, "end_index": 끝 인덱스}
+    """
+    matched_indices = []
+
+    for word in words:
+        # 단어가 full_text에서 여러 번 등장할 수 있으므로 finditer 사용
+        for match in re.finditer(re.escape(word), full_text):
+            matched_indices.append({
+                "word": word,
+                "start_index": match.start(),
+                "end_index": match.end()
+            })
+
+    return matched_indices
+
+
+
 
 if __name__ == '__main__':
     PROJECT_ID = "blnk-445514"
