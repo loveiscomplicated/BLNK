@@ -1,7 +1,11 @@
 import os
+import cv2
+import numpy as np
 from google.cloud import documentai
 from google.api_core.client_options import ClientOptions
 from pdf2image import convert_from_path
+
+
 
 # Google cloud console의 Document AI를 이용하여 OCR을 진행할 것입니다.
 # 서비스 계정 JSON 파일을 만든 후, 해당 파일의 경로를 GOOGLE_APPLICATION_CREDENTIALS라는 이름으로 저장하세요.
@@ -17,7 +21,7 @@ def pdf(project_id, location, processor_id, file_path):
         file_path (str): 입력 파일 경로
 
     Returns:
-        tuple: 추출된 전체 텍스트(str)와 텍스트와 좌표 데이터를 포함한 리스트(list)
+        document_object(???): Document AI의 출력물
     """
 
     # 환경 변수 설정 확인
@@ -49,29 +53,54 @@ def pdf(project_id, location, processor_id, file_path):
     result = docai_client.process_document(request=request)
 
     document_object = result.document
-    print("문서 처리가 완료되었습니다.")
+    return document_object
 
-    # 텍스트와 경계 상자 좌표 추출 (단어 기준)
-    extracted_text = document_object.text
-    extracted_data = []
-    for page in document_object.pages:
-        for token in page.tokens:  # 단어(token) 단위로 접근
-            # text_anchor를 사용하여 텍스트 추출
-            text_segments = token.layout.text_anchor.text_segments
-            if text_segments:
-                text_start = text_segments[0].start_index
-                text_end = text_segments[0].end_index
-                text = document_object.text[text_start:text_end]  # 텍스트 추출
+def pdf_to_images_with_docai_size(file_path, document_object):
+    """
+    PDF를 OpenCV에서 사용할 수 있도록 변환하고,
+    Document AI에서 제공하는 원본 크기와 동일한 크기로 조정.
 
-                # 경계 상자 추출
-                bounding_poly = token.layout.bounding_poly  # 경계 상자
-                coordinates = [(vertex.x, vertex.y) for vertex in bounding_poly.normalized_vertices]  # 좌표 계산
+    Args:
+        file_path (str): 입력 PDF 파일 경로
+        document_object: Google Document AI의 분석 결과 객체
 
-                extracted_data.append({
-                    "text": text,
-                    "coordinates": coordinates,
-                    "page_number": page.page_number  # 페이지 번호 추가
-                })
+    Returns:
+        list: Document AI 크기에 맞춰 변환된 OpenCV 이미지 리스트
+    """
+    # PDF를 이미지(PIL 형식)로 변환
+    pil_images = convert_from_path(file_path, dpi=300)
 
-    image_list = convert_from_path(file_path, dpi=300)
-    return extracted_text, extracted_data, image_list
+    image_list = []
+    for page_number, image in enumerate(pil_images):
+        # PIL -> OpenCV 변환
+        opencv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+
+        # Document AI의 원본 크기 가져오기
+        docai_width = document_object.pages[page_number].dimension.width
+        docai_height = document_object.pages[page_number].dimension.height
+
+        # OpenCV로 Document AI 크기에 맞춰 리사이징
+        resized_image = cv2.resize(opencv_image, (int(docai_width), int(docai_height)))
+
+        image_list.append(resized_image)
+
+    return image_list
+
+if __name__ == '__main__':
+    PROJECT_ID = "blnk-445514"
+    LOCATION = "us"  # 위치를 'us' 또는 'eu'로 설정
+    PROCESSOR_ID = "f95b966bf0fb2004"  # Cloud Console에서 생성된 프로세서 ID
+    FILE_PATH = "./tests/materials/ex_history.pdf"
+
+
+    document_object = pdf(PROJECT_ID, LOCATION, PROCESSOR_ID, FILE_PATH)
+
+    import pickle
+
+    save_path = './tests/materials/document_object.pkl'
+
+    with open(save_path, 'wb') as f:
+        pickle.dump(document_object, f)
+
+    print("저장 완료")
+
