@@ -6,50 +6,56 @@ with open(save_path, 'rb') as f:
     document_object = pickle.load(f)
 
 
-#print(document_object)
+print(document_object)
 
+# 이제 만들어야 하는 것은 
+# Document AI의 document_object에서 특정 **텍스트 범위(시작 인덱스 ~ 끝 인덱스)**에 포함된 **토큰(token)**을 검색하는 함수
 
-
-from pdf2image import convert_from_path
-import cv2
-import numpy as np
-
-def pdf_to_images_with_docai_size(file_path, document_object):
+def find_tokens_in_range(document_object, start_index, end_index):
     """
-    PDF를 OpenCV에서 사용할 수 있도록 변환하고,
-    Document AI에서 제공하는 원본 크기와 동일한 크기로 조정.
+    특정 시작~끝 인덱스에 포함되는 모든 토큰을 검색하는 함수.
 
     Args:
-        file_path (str): 입력 PDF 파일 경로
-        document_object: Google Document AI의 분석 결과 객체
+        document_object: Google Document AI의 OCR 결과 객체
+        start_index (int): 검색할 시작 인덱스
+        end_index (int): 검색할 끝 인덱스
 
     Returns:
-        list: Document AI 크기에 맞춰 변환된 OpenCV 이미지 리스트
+        list: 조건을 만족하는 토큰 목록 (딕셔너리 형태로 반환)
     """
-    # PDF를 이미지(PIL 형식)로 변환
-    pil_images = convert_from_path(file_path, dpi=300)
+    matched_tokens = []
 
-    image_list = []
-    for page_number, image in enumerate(pil_images):
-        # PIL -> OpenCV 변환
-        opencv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+    for page in document_object.pages:
+        for token in page.tokens:
+            # 토큰이 text_anchor.text_segments를 가지고 있는지 확인
+            if not token.layout.text_anchor.text_segments:
+                continue  # text_segments가 없는 경우 건너뜀
 
-        # Document AI의 원본 크기 가져오기
-        docai_width = document_object.pages[page_number].dimension.width
-        docai_height = document_object.pages[page_number].dimension.height
+            # 현재 토큰의 시작/끝 인덱스 가져오기
+            token_start = token.layout.text_anchor.text_segments[0].start_index
+            token_end = token.layout.text_anchor.text_segments[0].end_index
 
-        # OpenCV로 Document AI 크기에 맞춰 리사이징
-        resized_image = cv2.resize(opencv_image, (int(docai_width), int(docai_height)))
+            # ✅ 토큰이 범위 내에 포함되는지 확인
+            if token_start < end_index and token_end > start_index:
+                matched_tokens.append({
+                    "text": document_object.text[token_start:token_end],  # 실제 텍스트
+                    "start_index": token_start,
+                    "end_index": token_end,
+                    "page_number": page.page_number,
+                    "normalized_vertices": [
+                        {"x": vertex.x, "y": vertex.y} for vertex in token.layout.bounding_poly.normalized_vertices
+                    ]  # 좌표 리스트 변환
+                })
 
-        image_list.append(resized_image)
-
-    return image_list
+    return matched_tokens
 
 
-FILE_PATH = "./tests/materials/ex_history.pdf"
-pil_images = convert_from_path(FILE_PATH, dpi=300)
-print(pil_images)
 
+# 🔥 예제 실행
+start_index = 6
+end_index = 14
+tokens_in_range = find_tokens_in_range(document_object, start_index, end_index)
 
-image_list = pdf_to_images_with_docai_size(FILE_PATH, document_object)
-print(image_list[0].shape[0], image_list[0].shape[1])
+# 결과 출력
+for token in tokens_in_range:
+    print(f"토큰: {token['text']}, 시작: {token['start_index']}, 끝: {token['end_index']}, 페이지: {token['page_number']}")
