@@ -40,8 +40,15 @@ for page in document_object.pages:
 
 # --------------------------------------------------------
 
+# bounding poly 
+print(document_object.pages[3].tokens[0].layout.bounding_poly)
+
+# 절대좌표
+print(document_object.pages[3].tokens[0].layout.bounding_poly.vertices)
+
 # bounding poly - normalized vertices는 다음과 같이 찾는다
 print(document_object.pages[3].tokens[0].layout.bounding_poly.normalized_vertices)
+
 
 # 페이지 크기 -> 실제 이미지 사이즈랑 안 맞으면 이거 기준으로 resize해야 함
 print(document_object.pages[3].dimension.width)
