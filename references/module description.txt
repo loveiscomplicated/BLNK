@@ -1,15 +1,82 @@
-main
+
+
 
 OCR
-NON_OCR
 
-GPT_important_words
+def pdf(project_id, location, processor_id, file_path):
+    """
+    Document AI를 사용하여 텍스트와 경계 상자 좌표를 추출하는 함수
 
-blank_image
+    Args:
+        project_id (str): Google Cloud 프로젝트 ID
+        location (str): Document AI API 위치 (us 또는 eu)
+        processor_id (str): Document AI 프로세서 ID
+        file_path (str): 입력 파일 경로
+
+    Returns:
+        document_object(json): Document AI의 출력물
+    """
 
 
-OCR:
-google cloud console의 document ai 사용할 예정
-문서 OCR에 특화되어 성능이 다른 것들에 비해 더 낫기 때문이다.
+def pdf_to_images_with_docai_size(file_path, document_object):
+    """
+    PDF를 OpenCV에서 사용할 수 있도록 변환하고,
+    Document AI에서 제공하는 원본 크기와 동일한 크기로 조정.
 
-OCR을 통해 이미지/pdf에서 텍스트 추출, 글씨들의 좌표, 이미지 리스트를 반환
+    Args:
+        file_path (str): 입력 PDF 파일 경로
+        document_object: Google Document AI의 분석 결과 객체
+
+    Returns:
+        list: Document AI 크기에 맞춰 변환된 OpenCV 이미지 리스트
+    """
+
+
+def find_tokens_in_range(document_object, start_index, end_index):
+    """
+    특정 시작~끝 인덱스에 포함되는 모든 토큰을 검색하는 함수.
+
+    Args:
+        document_object: Google Document AI의 OCR 결과 객체
+        start_index (int): 검색할 시작 인덱스
+        end_index (int): 검색할 끝 인덱스
+
+    Returns:
+        list: 조건을 만족하는 토큰 목록 (딕셔너리 형태로 반환)
+    """
+
+
+def find_word_indices(full_text, words):
+    """
+    주어진 full_text에서 특정 단어 리스트에 포함된 단어들의 시작 및 끝 인덱스를 찾는 함수.
+
+    Args:
+        full_text (str): 검색할 전체 텍스트
+        words (list of str): 검색할 단어 리스트
+
+    Returns:
+        list of dict: 단어와 해당 위치 정보 리스트
+            - {"word": 단어, "start_index": 시작 인덱스, "end_index": 끝 인덱스}
+    """
+
+
+
+def get_bounding_bxes_by_page(document_object, words):
+    """
+    Google Document AI OCR 결과에서 특정 단어들의 바운딩 박스를 페이지별로 그룹화하여 반환하는 함수.
+
+    Args:
+        document_object: Google Document AI OCR 결과 객체
+        words (list of str): 검색할 단어 리스트
+
+    Returns:
+        dict: 페이지별 바운딩 박스 목록
+            - {
+                page_number: [
+                    {"word": 단어, "bounding_box": [좌표 리스트]},
+                    ...
+                ]
+            }
+    """
+
+
