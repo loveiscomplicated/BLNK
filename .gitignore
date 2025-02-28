@@ -225,4 +225,7 @@ pyrightconfig.json
 # API Key 파일 Git에서 제외
 *.json
 
+# test/materials 폴더 제외
+tests/materials
+
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,macos,python
