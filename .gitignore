@@ -222,4 +222,10 @@ pyrightconfig.json
 .history
 .ionide
 
+# Local configuration files
+config.py
+
+# API Key 파일 Git에서 제외
+*.json
+
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,macos,python
