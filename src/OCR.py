@@ -35,20 +35,23 @@ def pdf_to_blanked_pdf(file_path, keyword_ratio):
 
     # Document AI를 사용하여 텍스트와 경계 상자 좌표를 추출
     document_object = pdf(PROJECT_ID, LOCATION, PROCESSOR_ID, file_path)
+    print("Document_object 추출 완료")
     
     # PDF를 OpenCV에서 사용할 수 있도록 변환하고,
     # Document AI에서 제공하는 원본 크기와 동일한 크기로 조정.
     image_list = pdf_to_images_with_docai_size(file_path, document_object)
-
+    print("이미지 변환 완료")
+    
     # GPT 사용하는 부분
     path = './tests/materials/gpt_api_key.json'
     gpt_api_key = GPT_important_words.load_api_key(path)
     important_words_list = GPT_important_words.gpt_api_call(gpt_api_key, document_object.text, keyword_ratio)
-
+    print("GPT API 호출 완료")
+    
     # 빈칸 생성하는 부분
     coord_dict = draw_blank.get_bounding_bxes_by_page(document_object, important_words_list)
     draw_blank.draw_boxes(image_list, coord_dict, output_pdf_path="./tests/materials/output.pdf", color=(0, 255, 0), thickness=2)
-
+    print("빈칸 생성 완료")
 
 def pdf(project_id, location, processor_id, file_path):
     """
@@ -131,5 +134,5 @@ def pdf_to_images_with_docai_size(file_path, document_object):
 
 
 if __name__ == '__main__':
-    pdf_to_blanked_pdf('./tests/materials/ocr_removed.pdf', 0.25)
+    pdf_to_blanked_pdf('./tests/materials/engmath.pdf', 0.25)
     print('good')
