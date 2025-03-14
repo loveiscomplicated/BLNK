@@ -1,0 +1,18 @@
+name: my_project_env  # 원하는 환경 이름
+channels:
+  - defaults
+  - conda-forge  # 추가 패키지가 있을 경우
+dependencies:
+  - python=3.10  # 원하는 Python 버전
+  - numpy
+  - opencv
+  - pillow
+  - img2pdf
+  - pdf2image
+  - google-cloud-documentai
+  - google-api-core
+  - openai
+  - regex
+  - pip  # pip 패키지 설치 필요 시
+  - pip:
+      - pickle5  # Conda에 없는 패키지는 pip로 설치
