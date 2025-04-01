@@ -9,6 +9,8 @@ from collections import defaultdict
 from google.cloud import documentai
 from pdf2image import convert_from_path
 from google.api_core.client_options import ClientOptions
+from PyPDF2 import PdfReader, PdfWriter
+
 
 import GPT_important_words
 import draw_blank
@@ -132,6 +134,71 @@ def pdf_to_images_with_docai_size(file_path, document_object):
 
 
 
+
+def save_pdf_with_pages(reader, start, end, output_path):
+    writer = PdfWriter()
+    for i in range(start, end):
+        writer.add_page(reader.pages[i])
+    with open(output_path, "wb") as f:
+        writer.write(f)
+    return output_path
+
+def split_pdf_by_size(file_path, output_dir):
+    reader = PdfReader(file_path)
+    total_pages = len(reader.pages)
+    queue = [(0, total_pages)]  # (start_page, end_page)
+    part_files = []
+    part_num = 1
+    
+    MAX_SIZE = 20_000_000  # 20MB
+    
+    while queue:
+        start, end = queue.pop(0)
+        temp_output = os.path.join(output_dir, f"part_{part_num}.pdf")
+        save_pdf_with_pages(reader, start, end, temp_output)
+
+        size = os.path.getsize(temp_output)
+        if size <= MAX_SIZE:
+            print(f"[✔] Saved {temp_output} ({size / 1_000_000:.2f} MB)")
+            part_files.append(temp_output)
+            part_num += 1
+        else:
+            print(f"[✘] {temp_output} too big ({size / 1_000_000:.2f} MB), splitting again...")
+            os.remove(temp_output)
+            mid = (start + end) // 2
+            if mid == start or mid == end:
+                raise ValueError("A single page is too large to split. Manual intervention needed.")
+            queue.insert(0, (mid, end))
+            queue.insert(0, (start, mid))
+
+    return part_files
+
+
+     
+
+def all_in_one(input_file_path, output_file_path, keyword_ratio):
+    # 20mb 안 넘으면 그냥 진행
+    if os.path.getsize(input_file_path) < 20_000_000:
+        pdf_to_blanked_pdf(input_file_path, keyword_ratio, output_file_path)
+    
+    # 20mb 넘으면 temp 폴더에다가 pdf 분할 저장 -> 각각 처리 -> 병합 후
+    else:
+        delete_files_in_temp_folder()
+        splited_dir = os.path.dirname(input_file_path)
+        splited_pdf_list = split_pdf_by_size(input_file_path, splited_dir)
+        
+        
+        for pdf_file in splited_pdf_list:
+            pdf_to_blanked_pdf(pdf_file, keyword_ratio, output_file_path)
+            
+        
+        
+
+
+
 if __name__ == '__main__':
-    pdf_to_blanked_pdf('./tests/materials/engmath.pdf', 0.25, './tests/output/output.pdf')
-    print('good')
+    file_path = './tests/materials/long_book.pdf'
+    output_dir = os.path.dirname(file_path)
+    split_pdf_by_size(file_path, output_dir)
+    
+    
