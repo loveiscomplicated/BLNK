@@ -173,7 +173,18 @@ def split_pdf_by_size(file_path, output_dir):
 
     return part_files
 
-
+def delete_files_in_temp_folder():
+    """temp 폴더 청소하는 함수"""
+    directory_path = './temp'
+    try:
+        files = os.listdir(directory_path)
+        for file in files:
+            file_path = os.path.join(directory_path, file)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+        print("All files deleted successfully.")
+    except OSError:
+        print("Error occurred while deleting files.")
      
 
 def all_in_one(input_file_path, output_file_path, keyword_ratio):
