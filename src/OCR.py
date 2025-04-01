@@ -9,7 +9,7 @@ from collections import defaultdict
 from google.cloud import documentai
 from pdf2image import convert_from_path
 from google.api_core.client_options import ClientOptions
-from PyPDF2 import PdfReader, PdfWriter
+from PyPDF2 import PdfReader, PdfWriter, PdfMerger
 
 
 import GPT_important_words
@@ -100,7 +100,6 @@ def pdf(project_id, location, processor_id, file_path):
     return document_object
 
 
-
 def pdf_to_images_with_docai_size(file_path, document_object):
     """
     PDF를 OpenCV에서 사용할 수 있도록 변환하고,
@@ -151,6 +150,7 @@ def split_pdf_by_size(file_path, output_dir):
     part_num = 1
     
     MAX_SIZE = 20_000_000  # 20MB
+    MAX_PAGES = 15
     
     while queue:
         start, end = queue.pop(0)
@@ -158,7 +158,8 @@ def split_pdf_by_size(file_path, output_dir):
         save_pdf_with_pages(reader, start, end, temp_output)
 
         size = os.path.getsize(temp_output)
-        if size <= MAX_SIZE:
+        
+        if size <= MAX_SIZE and (end - start) <= MAX_PAGES:
             print(f"[✔] Saved {temp_output} ({size / 1_000_000:.2f} MB)")
             part_files.append(temp_output)
             part_num += 1
@@ -173,9 +174,8 @@ def split_pdf_by_size(file_path, output_dir):
 
     return part_files
 
-def delete_files_in_temp_folder():
+def delete_files_in_temp_folder(directory_path):
     """temp 폴더 청소하는 함수"""
-    directory_path = './temp'
     try:
         files = os.listdir(directory_path)
         for file in files:
@@ -188,28 +188,40 @@ def delete_files_in_temp_folder():
      
 
 def all_in_one(input_file_path, output_file_path, keyword_ratio):
-    # 20mb 안 넘으면 그냥 진행
-    if os.path.getsize(input_file_path) < 20_000_000:
-        pdf_to_blanked_pdf(input_file_path, keyword_ratio, output_file_path)
+    # temp 폴더 없으면 만들기
+    os.makedirs('./temp/splited', exist_ok=True)
+    os.makedirs('./temp/blanked_splited', exist_ok=True)
+
+    # 이미 있는 경우 초기화
+    delete_files_in_temp_folder('./temp/splited')
+    delete_files_in_temp_folder('./temp/blanked_splited')
+        
+    # pdf 분할하기
+    splited_pdf_list = split_pdf_by_size(input_file_path, './temp/splited')
+        
+    merger = PdfMerger()
+        
+    for pdf_file in splited_pdf_list:
+        temp_result_path = os.path.join('./temp/blanked_splited', os.path.basename(pdf_file))
+        pdf_to_blanked_pdf(pdf_file, keyword_ratio, temp_result_path)
+        merger.append(temp_result_path)
+        
+    merger.write(output_file_path)
+    merger.close()
+        
+        
+
+        
     
-    # 20mb 넘으면 temp 폴더에다가 pdf 분할 저장 -> 각각 처리 -> 병합 후
-    else:
-        delete_files_in_temp_folder()
-        splited_dir = os.path.dirname(input_file_path)
-        splited_pdf_list = split_pdf_by_size(input_file_path, splited_dir)
-        
-        
-        for pdf_file in splited_pdf_list:
-            pdf_to_blanked_pdf(pdf_file, keyword_ratio, output_file_path)
-            
         
         
 
 
 
 if __name__ == '__main__':
-    file_path = './tests/materials/long_book.pdf'
-    output_dir = os.path.dirname(file_path)
-    split_pdf_by_size(file_path, output_dir)
+    input_file_path = './tests/materials/long_ppt.pdf'
+    output_file_path = './tests/output.pdf'
+    keyword_ratio = 0.25
+    all_in_one(input_file_path, output_file_path, keyword_ratio)
     
     
