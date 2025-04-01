@@ -16,18 +16,17 @@ import draw_blank
 # Google cloud console의 Document AI를 이용하여 OCR을 진행할 것입니다.
 # 서비스 계정 JSON 파일을 만든 후, 해당 파일의 경로를 GOOGLE_APPLICATION_CREDENTIALS라는 이름으로 저장하세요.
 
-def pdf_to_blanked_pdf(file_path, keyword_ratio):
+def pdf_to_blanked_pdf(file_path, keyword_ratio, output_pdf_path):
     """
     OCR 전 과정을 수행하는 함수
 
     Args:
-        project_id (str): Google Cloud 프로젝트 ID
-        location (str): Document AI API 위치 (us 또는 eu)
-        processor_id (str): Document AI 프로세서 ID
         file_path (str): 입력 파일 경로
+        keyword_ratio: 빈칸 생성 비율
+        output_pdf_path: 결과물 저장 경로
 
     Returns:
-        output (pdf): 최종 결과물
+        output (pdf): 최종 결과물, return 안 함
     """
     PROJECT_ID = "blnk-445514"
     LOCATION = "us"  # 위치를 'us' 또는 'eu'로 설정
@@ -50,7 +49,7 @@ def pdf_to_blanked_pdf(file_path, keyword_ratio):
     
     # 빈칸 생성하는 부분
     coord_dict = draw_blank.get_bounding_bxes_by_page(document_object, important_words_list)
-    draw_blank.draw_boxes(image_list, coord_dict, output_pdf_path="./tests/materials/output.pdf", color=(0, 255, 0), thickness=2)
+    draw_blank.draw_boxes(image_list, coord_dict, output_pdf_path=output_pdf_path, color=(0, 255, 0), thickness=2)
     print("빈칸 생성 완료")
 
 def pdf(project_id, location, processor_id, file_path):
@@ -134,5 +133,5 @@ def pdf_to_images_with_docai_size(file_path, document_object):
 
 
 if __name__ == '__main__':
-    pdf_to_blanked_pdf('./tests/materials/engmath.pdf', 0.25)
+    pdf_to_blanked_pdf('./tests/materials/engmath.pdf', 0.25, './tests/output/output.pdf')
     print('good')
