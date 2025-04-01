@@ -1,4 +1,4 @@
-name: my_project_env  # 원하는 환경 이름
+name: BLNK  # 원하는 환경 이름
 channels:
   - defaults
   - conda-forge  # 추가 패키지가 있을 경우
