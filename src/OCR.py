@@ -51,7 +51,7 @@ def pdf_to_blanked_pdf(file_path, keyword_ratio, output_pdf_path):
     
     # 빈칸 생성하는 부분
     coord_dict = draw_blank.get_bounding_bxes_by_page(document_object, important_words_list)
-    draw_blank.draw_boxes(image_list, coord_dict, output_pdf_path=output_pdf_path, color=(0, 255, 0), thickness=2)
+    draw_blank.draw_boxes(image_list, coord_dict, output_pdf_path=output_pdf_path, color=(230, 222, 171), thickness=2)
     print("빈칸 생성 완료")
 
 def pdf(project_id, location, processor_id, file_path):
@@ -148,29 +148,35 @@ def split_pdf_by_size(file_path, output_dir):
     queue = [(0, total_pages)]  # (start_page, end_page)
     part_files = []
     part_num = 1
-    
+    failed_pages = []
+
     MAX_SIZE = 20_000_000  # 20MB
     MAX_PAGES = 15
-    
+
     while queue:
         start, end = queue.pop(0)
         temp_output = os.path.join(output_dir, f"part_{part_num}.pdf")
         save_pdf_with_pages(reader, start, end, temp_output)
-
         size = os.path.getsize(temp_output)
-        
+
         if size <= MAX_SIZE and (end - start) <= MAX_PAGES:
             print(f"[✔] Saved {temp_output} ({size / 1_000_000:.2f} MB)")
             part_files.append(temp_output)
             part_num += 1
         else:
-            print(f"[✘] {temp_output} too big ({size / 1_000_000:.2f} MB), splitting again...")
             os.remove(temp_output)
-            mid = (start + end) // 2
-            if mid == start or mid == end:
-                raise ValueError("A single page is too large to split. Manual intervention needed.")
-            queue.insert(0, (mid, end))
-            queue.insert(0, (start, mid))
+            if end - start == 1:
+                # 더 이상 쪼갤 수 없는 1페이지도 너무 큰 경우
+                print(f"[❌] Page {start} is too large to split or process (>{MAX_SIZE / 1_000_000:.1f} MB). Skipping.")
+                failed_pages.append(start)
+            else:
+                print(f"[✘] {temp_output} too big ({size / 1_000_000:.2f} MB), splitting again...")
+                mid = (start + end) // 2
+                queue.insert(0, (mid, end))
+                queue.insert(0, (start, mid))
+
+    if failed_pages:
+        print(f"[⚠️] The following pages could not be processed due to size: {failed_pages}")
 
     return part_files
 
@@ -209,17 +215,9 @@ def all_in_one(input_file_path, output_file_path, keyword_ratio):
     merger.write(output_file_path)
     merger.close()
         
-        
-
-        
-    
-        
-        
-
-
 
 if __name__ == '__main__':
-    input_file_path = './tests/materials/long_ppt.pdf'
+    input_file_path = './tests/materials/sample1.pdf'
     output_file_path = './tests/output.pdf'
     keyword_ratio = 0.25
     all_in_one(input_file_path, output_file_path, keyword_ratio)
