@@ -232,3 +232,4 @@ tests/materials
 src/playground.py
 tests/output/
 temp/
+tests/output.pdf
