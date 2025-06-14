@@ -18,7 +18,7 @@ import draw_blank
 
 def pdf_to_blanked_pdf(file_path, keyword_ratio):
     """
-    OCR 전 과정을 수행하는 함수
+    전 과정을 수행하는 함수
 
     Args:
         project_id (str): Google Cloud 프로젝트 ID
@@ -131,5 +131,5 @@ def pdf_to_images_with_docai_size(file_path, document_object):
 
 
 if __name__ == '__main__':
-    pdf_to_blanked_pdf('./tests/materials/ocr_removed.pdf', 0.25)
+    pdf_to_blanked_pdf('./tests/materials/engmath.pdf', 0.25)
     print('good')

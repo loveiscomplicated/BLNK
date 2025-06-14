@@ -1,0 +1,16 @@
+name: blnk
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10.18
+  - opencv
+  - numpy
+  - pillow
+  - google-api-core
+  - pdf2image
+  - img2pdf
+  - pip
+  - pip:
+    - google-cloud-documentai
+    - openai
