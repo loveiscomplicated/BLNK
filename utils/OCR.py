@@ -9,6 +9,8 @@ from collections import defaultdict
 from google.cloud import documentai
 from pdf2image import convert_from_path
 from google.api_core.client_options import ClientOptions
+from PyPDF2 import PdfReader, PdfWriter, PdfMerger
+
 
 import GPT_important_words
 import draw_blank
@@ -16,18 +18,17 @@ import draw_blank
 # Google cloud console의 Document AI를 이용하여 OCR을 진행할 것입니다.
 # 서비스 계정 JSON 파일을 만든 후, 해당 파일의 경로를 GOOGLE_APPLICATION_CREDENTIALS라는 이름으로 저장하세요.
 
-def pdf_to_blanked_pdf(file_path, keyword_ratio):
+def pdf_to_blanked_pdf(file_path, keyword_ratio, output_pdf_path):
     """
     전 과정을 수행하는 함수
 
     Args:
-        project_id (str): Google Cloud 프로젝트 ID
-        location (str): Document AI API 위치 (us 또는 eu)
-        processor_id (str): Document AI 프로세서 ID
         file_path (str): 입력 파일 경로
+        keyword_ratio: 빈칸 생성 비율
+        output_pdf_path: 결과물 저장 경로
 
     Returns:
-        output (pdf): 최종 결과물
+        output (pdf): 최종 결과물, return 안 함
     """
     PROJECT_ID = "blnk-445514"
     LOCATION = "us"  # 위치를 'us' 또는 'eu'로 설정
@@ -35,20 +36,23 @@ def pdf_to_blanked_pdf(file_path, keyword_ratio):
 
     # Document AI를 사용하여 텍스트와 경계 상자 좌표를 추출
     document_object = pdf(PROJECT_ID, LOCATION, PROCESSOR_ID, file_path)
+    print("Document_object 추출 완료")
     
     # PDF를 OpenCV에서 사용할 수 있도록 변환하고,
     # Document AI에서 제공하는 원본 크기와 동일한 크기로 조정.
     image_list = pdf_to_images_with_docai_size(file_path, document_object)
-
+    print("이미지 변환 완료")
+    
     # GPT 사용하는 부분
     path = './tests/materials/gpt_api_key.json'
     gpt_api_key = GPT_important_words.load_api_key(path)
     important_words_list = GPT_important_words.gpt_api_call(gpt_api_key, document_object.text, keyword_ratio)
-
+    print("GPT API 호출 완료")
+    
     # 빈칸 생성하는 부분
     coord_dict = draw_blank.get_bounding_bxes_by_page(document_object, important_words_list)
-    draw_blank.draw_boxes(image_list, coord_dict, output_pdf_path="./tests/materials/output.pdf", color=(0, 255, 0), thickness=2)
-
+    draw_blank.draw_boxes(image_list, coord_dict, output_pdf_path=output_pdf_path, color=(230, 222, 171), thickness=2)
+    print("빈칸 생성 완료")
 
 def pdf(project_id, location, processor_id, file_path):
     """
@@ -96,7 +100,6 @@ def pdf(project_id, location, processor_id, file_path):
     return document_object
 
 
-
 def pdf_to_images_with_docai_size(file_path, document_object):
     """
     PDF를 OpenCV에서 사용할 수 있도록 변환하고,
@@ -129,6 +132,89 @@ def pdf_to_images_with_docai_size(file_path, document_object):
     return image_list
 
 
+
+
+def save_pdf_with_pages(reader, start, end, output_path):
+    writer = PdfWriter()
+    for i in range(start, end):
+        writer.add_page(reader.pages[i])
+    with open(output_path, "wb") as f:
+        writer.write(f)
+    return output_path
+
+def split_pdf_by_size(file_path, output_dir):
+    reader = PdfReader(file_path)
+    total_pages = len(reader.pages)
+    queue = [(0, total_pages)]  # (start_page, end_page)
+    part_files = []
+    part_num = 1
+    failed_pages = []
+
+    MAX_SIZE = 20_000_000  # 20MB
+    MAX_PAGES = 15
+
+    while queue:
+        start, end = queue.pop(0)
+        temp_output = os.path.join(output_dir, f"part_{part_num}.pdf")
+        save_pdf_with_pages(reader, start, end, temp_output)
+        size = os.path.getsize(temp_output)
+
+        if size <= MAX_SIZE and (end - start) <= MAX_PAGES:
+            print(f"[✔] Saved {temp_output} ({size / 1_000_000:.2f} MB)")
+            part_files.append(temp_output)
+            part_num += 1
+        else:
+            os.remove(temp_output)
+            if end - start == 1:
+                # 더 이상 쪼갤 수 없는 1페이지도 너무 큰 경우
+                print(f"[❌] Page {start} is too large to split or process (>{MAX_SIZE / 1_000_000:.1f} MB). Skipping.")
+                failed_pages.append(start)
+            else:
+                print(f"[✘] {temp_output} too big ({size / 1_000_000:.2f} MB), splitting again...")
+                mid = (start + end) // 2
+                queue.insert(0, (mid, end))
+                queue.insert(0, (start, mid))
+
+    if failed_pages:
+        print(f"[⚠️] The following pages could not be processed due to size: {failed_pages}")
+
+    return part_files
+
+def delete_files_in_temp_folder(directory_path):
+    """temp 폴더 청소하는 함수"""
+    try:
+        files = os.listdir(directory_path)
+        for file in files:
+            file_path = os.path.join(directory_path, file)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+        print("All files deleted successfully.")
+    except OSError:
+        print("Error occurred while deleting files.")
+     
+
+def all_in_one(input_file_path, output_file_path, keyword_ratio):
+    # temp 폴더 없으면 만들기
+    os.makedirs('./temp/splited', exist_ok=True)
+    os.makedirs('./temp/blanked_splited', exist_ok=True)
+
+    # 이미 있는 경우 초기화
+    delete_files_in_temp_folder('./temp/splited')
+    delete_files_in_temp_folder('./temp/blanked_splited')
+        
+    # pdf 분할하기
+    splited_pdf_list = split_pdf_by_size(input_file_path, './temp/splited')
+        
+    merger = PdfMerger()
+        
+    for pdf_file in splited_pdf_list:
+        temp_result_path = os.path.join('./temp/blanked_splited', os.path.basename(pdf_file))
+        pdf_to_blanked_pdf(pdf_file, keyword_ratio, temp_result_path)
+        merger.append(temp_result_path)
+        
+    merger.write(output_file_path)
+    merger.close()
+        
 
 if __name__ == '__main__':
     pdf_to_blanked_pdf('./tests/materials/engmath.pdf', 0.25)

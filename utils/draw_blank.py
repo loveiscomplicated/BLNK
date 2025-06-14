@@ -128,7 +128,7 @@ def draw_boxes(image_list, coord_dict, output_pdf_path="./tests/materials/output
         coord_dict (dict): 페이지별 바운딩 박스 좌표 딕셔너리 (정렬되지 않은 상태)
             - {page_number: [[(x1, y1), (x2, y2), (x3, y3), (x4, y4)], ...]}
         output_pdf_path (str): 저장할 PDF 파일 경로 (기본값: "./tests/materials/output.pdf")
-        color (tuple): 바운딩 박스 색상 (기본값: 초록색)
+        color (tuple): 바운딩 박스 색상 (기본값 초록색 - BGR기준)
         thickness (int): 바운딩 박스 두께 (기본값: 2)
     
     Returns:
@@ -144,7 +144,9 @@ def draw_boxes(image_list, coord_dict, output_pdf_path="./tests/materials/output
         # 바운딩 박스 그리기
         for box in bounding_boxes:
             pts = np.array(box, dtype=np.int32)
-            cv2.polylines(image, [pts], isClosed=True, color=color, thickness=thickness)
+            # 이 부분을 조정하여 바운딩 박스의 색과 채우기를 바꿀 수 있음
+            cv2.fillPoly(image, [pts], color = color)
+            #cv2.polylines(image, [pts], isClosed=True, color=color, thickness=thickness)
 
         # OpenCV 이미지를 PIL로 변환 (RGB 모드)
         image_pil = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))

@@ -230,3 +230,6 @@ tests/materials
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,macos,python
 src/playground.py
+tests/output/
+temp/
+tests/output.pdf
