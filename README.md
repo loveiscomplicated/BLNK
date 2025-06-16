@@ -62,15 +62,58 @@ BLNK/
 
 ---
 
+# 🚀 시작하기
+이 섹션에서는 프로젝트를 로컬 머신에 설정하고 실행하는 방법을 안내합니다.
+
+📋 사전 준비 사항
+이 프로젝트를 실행하려면 다음이 설치되어 있어야 합니다:
+
+Miniconda 또는 Anaconda: 파이썬 환경 관리를 위해 필요합니다. Conda 설치 가이드를 참조하세요.
+
+📦 가상 환경 설정
+이 프로젝트는 environment.yml 파일을 사용하여 모든 필요한 의존성을 관리합니다.
+
+리포지토리 클론 (아직 하지 않았다면):
+
+git clone [당신의 GitHub 레포지토리 URL]
+cd [프로젝트 폴더 이름]
+
+
+콘다 가상 환경 생성 또는 업데이트:
+environment.yml 파일이 있는 디렉터리로 이동하여 다음 명령어를 실행합니다.
+
+새로운 가상 환경 생성:
+
+conda env create -f environment.yml
+
+
+이 명령어는 environment.yml 파일에 정의된 이름(예: name: my_project_env)으로 가상 환경을 생성합니다.
+
+기존 가상 환경 업데이트 (패키지 변경 사항 반영 시):
+
+conda env update -f environment.yml
+
+
+이 명령어는 이미 생성된 가상 환경이 있다면 environment.yml의 내용에 따라 필요한 패키지를 추가, 업데이트 또는 제거합니다.
+
+가상 환경 활성화:
+
+conda activate [가상_환경_이름]
+# environment.yml 파일의 'name' 필드에 있는 이름 (예: my_project_env)을 사용하세요.
+
+
+
 ## 🚀 사용 방법
 
 1. **Google Document AI 설정**
    - 서비스 계정 키 생성 후 환경변수 등록
 
-2. **OpenAI API 키 설정**
-   ```bash
-   export OPENAI_API_KEY=your_key_here
-````
+2. OpenAI API 키 설정 (gpt_api_key.json): 
+   루트 디렉토리에 gpt_api_key.json 파일을 생성하고, 다음과 같은 형식으로 자신의 API 키를 입력하세요:
+{
+    "api_key": "YOUR_OPENAI_API_KEY_HERE"
+}
+```YOUR_OPENAI_API_KEY_HERE` 부분을 OpenAI에서 발급받은 실제 API 키로 교체해야 합니다.
 
 3. **의존 패키지 설치**
 

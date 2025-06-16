@@ -48,7 +48,7 @@ def find_tokens_in_range(document_object, start_index, end_index):
 
     return matched_tokens
 
-def find_word_indices(full_text, words):
+def find_word_indices(full_text: str, words: list, match_upperBound: int = 2):
     """
     주어진 full_text에서 특정 단어 리스트에 포함된 단어들의 시작 및 끝 인덱스를 찾는 함수.
 
@@ -61,17 +61,23 @@ def find_word_indices(full_text, words):
             - {"word": 단어, "start_index": 시작 인덱스, "end_index": 끝 인덱스}
     """
     matched_indices = []
+    word_counts = {}
 
     for word in words:
+        word_counts[word] = 0
         # 단어가 full_text에서 여러 번 등장할 수 있으므로 finditer 사용
         for match in re.finditer(re.escape(word), full_text):
-            matched_indices.append({
-                "word": word,
-                "start_index": match.start(),
-                "end_index": match.end()
-            })
-
+            if word_counts[word] < match_upperBound:
+                matched_indices.append({
+                    "word": word,
+                    "start_index": match.start(),
+                    "end_index": match.end()
+                })
+                word_counts[word] += 1
+            else:
+                break
     return matched_indices
+
 
 
 def get_bounding_bxes_by_page(document_object, words):
@@ -94,7 +100,7 @@ def get_bounding_bxes_by_page(document_object, words):
     full_text = document_object.text
 
     # 1️⃣ OCR 전체 텍스트에서 단어 위치 찾기
-    word_indices = find_word_indices(full_text, words)
+    word_indices = find_word_indices(full_text, words, match_upperBound = 2)
 
     # 2️⃣ 페이지별 바운딩 박스 저장할 딕셔너리
     page_bounding_boxes = defaultdict(list)

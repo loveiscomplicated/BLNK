@@ -10,13 +10,14 @@ from google.cloud import documentai
 from pdf2image import convert_from_path
 from google.api_core.client_options import ClientOptions
 from PyPDF2 import PdfReader, PdfWriter, PdfMerger
+import multiprocessing
 
-
-import GPT_important_words
-import draw_blank
+import pickle
+from . import keyword_extractor
+from . import masking_processor 
 
 # Google cloud console의 Document AI를 이용하여 OCR을 진행할 것입니다.
-# 서비스 계정 JSON 파일을 만든 후, 해당 파일의 경로를 GOOGLE_APPLICATION_CREDENTIALS라는 이름으로 저장하세요.
+# 서비스 계정 JSON 파일을 만든 후, 해당 파일의 경로를 GOOGLE_APPLICATION_CREDENTIALS라는 이름의 환경 변수로 저장하세요.
 
 def pdf_to_blanked_pdf(file_path, keyword_ratio, output_pdf_path):
     """
@@ -44,14 +45,15 @@ def pdf_to_blanked_pdf(file_path, keyword_ratio, output_pdf_path):
     print("이미지 변환 완료")
     
     # GPT 사용하는 부분
-    path = './tests/materials/gpt_api_key.json'
-    gpt_api_key = GPT_important_words.load_api_key(path)
-    important_words_list = GPT_important_words.gpt_api_call(gpt_api_key, document_object.text, keyword_ratio)
+    path = './gpt_api_key.json'
+    gpt_api_key = keyword_extractor.load_api_key(path)
+    important_words_list = keyword_extractor.gpt_api_call(gpt_api_key, document_object.text, keyword_ratio)
     print("GPT API 호출 완료")
+    print(important_words_list)###################3
     
     # 빈칸 생성하는 부분
-    coord_dict = draw_blank.get_bounding_bxes_by_page(document_object, important_words_list)
-    draw_blank.draw_boxes(image_list, coord_dict, output_pdf_path=output_pdf_path, color=(230, 222, 171), thickness=2)
+    coord_dict = masking_processor.get_bounding_bxes_by_page(document_object, important_words_list)
+    masking_processor.draw_boxes(image_list, coord_dict, output_pdf_path=output_pdf_path, color=(230, 222, 171), thickness=2)
     print("빈칸 생성 완료")
 
 def pdf(project_id, location, processor_id, file_path):
@@ -102,7 +104,7 @@ def pdf(project_id, location, processor_id, file_path):
 
 def pdf_to_images_with_docai_size(file_path, document_object):
     """
-    PDF를 OpenCV에서 사용할 수 있도록 변환하고,
+    PDF를 OpenCV에서 사용할 수 있도록 이미지로 변환하고,
     Document AI에서 제공하는 원본 크기와 동일한 크기로 조정.
 
     Args:
@@ -113,7 +115,7 @@ def pdf_to_images_with_docai_size(file_path, document_object):
         list: Document AI 크기에 맞춰 변환된 OpenCV 이미지 리스트
     """
     # PDF를 이미지(PIL 형식)로 변환
-    pil_images = convert_from_path(file_path, dpi=300)
+    pil_images = convert_from_path(file_path, dpi=200)
 
     image_list = []
     for page_number, image in enumerate(pil_images):
@@ -129,9 +131,7 @@ def pdf_to_images_with_docai_size(file_path, document_object):
 
         image_list.append(resized_image)
 
-    return image_list
-
-
+    return image_list    
 
 
 def save_pdf_with_pages(reader, start, end, output_path):
@@ -193,29 +193,54 @@ def delete_files_in_temp_folder(directory_path):
         print("Error occurred while deleting files.")
      
 
-def all_in_one(input_file_path, output_file_path, keyword_ratio):
+# 병렬 처리를 위해 인자를 직접 받아 처리하는 헬퍼 함수로 수정
+def _process_single_pdf_part(pdf_file, keyword_ratio_val): # <-- 여기서 인자를 직접 받도록 변경
+    temp_result_path = os.path.join('./temp/blanked_splited', os.path.basename(pdf_file)) 
+    pdf_to_blanked_pdf(pdf_file, keyword_ratio_val, temp_result_path) 
+    return temp_result_path # 처리된 파일 경로 반환
+
+def all_in_one(input_file_path, keyword_ratio, output_file_path): 
     # temp 폴더 없으면 만들기
-    os.makedirs('./temp/splited', exist_ok=True)
-    os.makedirs('./temp/blanked_splited', exist_ok=True)
+    os.makedirs('./temp/splited', exist_ok=True) 
+    os.makedirs('./temp/blanked_splited', exist_ok=True) 
 
     # 이미 있는 경우 초기화
-    delete_files_in_temp_folder('./temp/splited')
-    delete_files_in_temp_folder('./temp/blanked_splited')
-        
-    # pdf 분할하기
-    splited_pdf_list = split_pdf_by_size(input_file_path, './temp/splited')
-        
-    merger = PdfMerger()
-        
-    for pdf_file in splited_pdf_list:
-        temp_result_path = os.path.join('./temp/blanked_splited', os.path.basename(pdf_file))
-        pdf_to_blanked_pdf(pdf_file, keyword_ratio, temp_result_path)
-        merger.append(temp_result_path)
-        
-    merger.write(output_file_path)
-    merger.close()
-        
+    delete_files_in_temp_folder('./temp/splited') 
+    delete_files_in_temp_folder('./temp/blanked_splited') 
 
-if __name__ == '__main__':
-    pdf_to_blanked_pdf('./tests/materials/engmath.pdf', 0.25)
-    print('good')
+    # pdf 분할하기
+    splited_pdf_list = split_pdf_by_size(input_file_path, './temp/splited') 
+
+    # 병렬 처리를 위한 인자 리스트 생성
+    # 각 분할된 PDF 파일과 keyword_ratio를 튜플로 묶음
+    tasks = [(pdf_file, keyword_ratio) for pdf_file in splited_pdf_list] 
+
+    # 프로세스 풀 생성 (CPU 코어 수에 맞게 설정하거나 적절한 값으로 조절)
+    # 예를 들어, os.cpu_count()를 사용하거나 특정 개수로 제한
+    num_processes = multiprocessing.cpu_count() # 사용 가능한 모든 코어 사용
+    # num_processes = 4 # 또는 특정 개수로 제한
+    print(f"Using {num_processes} processes for parallel processing.") 
+
+    with multiprocessing.Pool(processes=num_processes) as pool: 
+        # starmap을 사용하여 각 튜플 인자를 _process_single_pdf_part 함수에 전달
+        # 결과로 처리된 파일 경로들의 리스트를 받음
+        processed_pdf_paths = pool.starmap(_process_single_pdf_part, tasks) 
+
+    merger = PdfMerger() 
+
+    # 병렬 처리된 결과들을 병합
+    for processed_path in processed_pdf_paths: 
+        if os.path.exists(processed_path): # 파일이 실제로 존재하는지 확인
+            merger.append(processed_path) 
+        else: 
+            print(f"Warning: Processed file not found: {processed_path}") #
+
+    merger.write(output_file_path) 
+    merger.close() 
+
+    print('Parallel processing completed.') 
+
+if __name__ == '__main__': 
+    # 이 부분은 테스트 환경에 맞춰 수정하세요.
+    all_in_one('./tests/materials/ex_history.pdf', 0.25, './tests/output.pdf') #
+    print('good') 
