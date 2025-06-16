@@ -42,7 +42,7 @@ BLNK는 GPT와 OCR 기술을 기반으로, 기존 학습 자료(PDF)에서 중�
 
 ## 📁 폴더 구조
 
-```
+```scss
 
 BLNK/
 ├── main.py
@@ -73,19 +73,13 @@ Miniconda 또는 Anaconda: 파이썬 환경 관리를 위해 필요합니다. Co
 📦 가상 환경 설정
 이 프로젝트는 environment.yml 파일을 사용하여 모든 필요한 의존성을 관리합니다.
 
-리포지토리 클론 (아직 하지 않았다면):
-
-git clone [당신의 GitHub 레포지토리 URL]
-cd [프로젝트 폴더 이름]
-
-
 콘다 가상 환경 생성 또는 업데이트:
 environment.yml 파일이 있는 디렉터리로 이동하여 다음 명령어를 실행합니다.
 
 새로운 가상 환경 생성:
-
+```bash
 conda env create -f environment.yml
-
+```
 
 이 명령어는 environment.yml 파일에 정의된 이름(예: name: my_project_env)으로 가상 환경을 생성합니다.
 
@@ -97,8 +91,9 @@ conda env update -f environment.yml
 이 명령어는 이미 생성된 가상 환경이 있다면 environment.yml의 내용에 따라 필요한 패키지를 추가, 업데이트 또는 제거합니다.
 
 가상 환경 활성화:
-
+```bash
 conda activate [가상_환경_이름]
+```
 # environment.yml 파일의 'name' 필드에 있는 이름 (예: my_project_env)을 사용하세요.
 
 
@@ -124,7 +119,7 @@ conda activate [가상_환경_이름]
 4. **실행**
 
    ```bash
-   python main.py --input samples/example.pdf --output output/masked_output.pdf --blank_ratio 0.3
+   python main.py
    ```
 
 ---
