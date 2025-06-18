@@ -29,6 +29,6 @@ if __name__ == "__main__":
 
 
 """
-./tests/materials/25-1 알고리즘.pdf
-./output.pdf
+./tests/materials/CH16-Node.pdf
+./CH16-Node.pdf
 """
